@@ -221,11 +221,13 @@ class _DrawerPageState extends State<DrawerPage> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        CustomPaint(
-          size: Size.infinite,
-          painter: DrawPainter(
-            paths: paths,
-            mapPathPaints: mapPathPaints,
+        ClipRect(
+          child: CustomPaint(
+            size: Size.infinite,
+            painter: DrawPainter(
+              paths: paths,
+              mapPathPaints: mapPathPaints,
+            ),
           ),
         ),
         if (stickers.isNotEmpty)
