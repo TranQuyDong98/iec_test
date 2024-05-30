@@ -1,7 +1,7 @@
-import 'package:drap_and_drop/part2_page.dart';
+import 'package:drap_and_drop/part2/part2_page.dart';
 import 'package:flutter/material.dart';
 
-import 'drag_and_drop_example.dart';
+import 'part1/drag_and_drop_example.dart';
 
 void main() {
   runApp(const MyApp());

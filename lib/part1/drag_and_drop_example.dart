@@ -1,5 +1,6 @@
-import 'package:drap_and_drop/sticker_model.dart';
 import 'package:flutter/material.dart';
+
+import 'sticker_model.dart';
 
 class DragAndDropExample extends StatefulWidget {
   const DragAndDropExample({super.key});
