@@ -1,4 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'dart:ui' as ui;
 
 import 'action.dart';
 import 'draw_painter.dart';
@@ -20,6 +25,8 @@ class _DrawerPageState extends State<DrawerPage> {
 
   bool hide = false;
   List<Sticker> stickers = <Sticker>[];
+
+  final GlobalKey _globalKey = GlobalKey();
 
   @override
   void initState() {
@@ -87,6 +94,52 @@ class _DrawerPageState extends State<DrawerPage> {
     setState(() {});
   }
 
+  Future<Uint8List?> takeScreenShot() async {
+    final boundary = _globalKey.currentContext?.findRenderObject();
+    if (boundary is RenderRepaintBoundary) {
+      ui.Image image = await boundary.toImage(
+        pixelRatio: MediaQuery.of(context).devicePixelRatio * 1.5,
+      );
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      return bytes?.buffer
+          .asUint8List(bytes.offsetInBytes, bytes.lengthInBytes);
+    }
+    return null;
+  }
+
+  onSaver() async {
+    Uint8List? bytes = await takeScreenShot();
+    if (bytes != null) {
+      final result = await ImageGallerySaver.saveImage(
+        bytes,
+        name: "draw_${DateTime.now().millisecondsSinceEpoch}",
+      );
+      if (result != null) {
+        _showDialog();
+      }
+    }
+  }
+
+  Future<void> _showDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          content: const Text('Image Save Success!'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -94,6 +147,11 @@ class _DrawerPageState extends State<DrawerPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: const Text('Draw Page'),
         actions: [
+          IconButton(
+            onPressed: onSaver,
+            icon: const Icon(Icons.save),
+            color: Colors.black,
+          ),
           IconButton(
             onPressed: _onUndo,
             icon: const Icon(Icons.undo),
@@ -119,39 +177,42 @@ class _DrawerPageState extends State<DrawerPage> {
   }
 
   Paint initPaint() => Paint()
-    ..color = erase ? Colors.white : Colors.teal
+    ..color = erase ? Colors.grey[300]! : Colors.teal
     ..strokeWidth = erase ? 15 : 10
     ..style = PaintingStyle.stroke
     ..strokeCap = StrokeCap.round;
 
   Widget _customPaint() {
-    return Container(
-      width: MediaQuery.sizeOf(context).width - 32,
-      height: double.maxFinite,
-      alignment: Alignment.center,
-      color: Colors.grey[300],
-      child: GestureDetector(
-        onPanStart: onPanStart,
-        onPanUpdate: onPanUpdate,
-        child: Builder(builder: (context) {
-          return DragTarget<Sticker>(
-            onAcceptWithDetails: (details) {
-              Offset localOffset =
-                  convertGlobalToLocalOffset(context, details.offset);
-              if (stickers.isEmpty) {
-                stickers.add(details.data.copyWith(localOffset: localOffset));
-              } else {
-                stickers
-                    .removeWhere((element) => element.id == details.data.id);
-                stickers.add(details.data.copyWith(localOffset: localOffset));
-              }
-              setState(() {
-                hide = true;
-              });
-            },
-            builder: (context, candidateData, rejectedData) => _drawBlock(),
-          );
-        }),
+    return RepaintBoundary(
+      key: _globalKey,
+      child: Container(
+        width: MediaQuery.sizeOf(context).width - 32,
+        height: double.maxFinite,
+        alignment: Alignment.center,
+        color: Colors.grey[300],
+        child: GestureDetector(
+          onPanStart: onPanStart,
+          onPanUpdate: onPanUpdate,
+          child: Builder(builder: (context) {
+            return DragTarget<Sticker>(
+              onAcceptWithDetails: (details) {
+                Offset localOffset =
+                    convertGlobalToLocalOffset(context, details.offset);
+                if (stickers.isEmpty) {
+                  stickers.add(details.data.copyWith(localOffset: localOffset));
+                } else {
+                  stickers
+                      .removeWhere((element) => element.id == details.data.id);
+                  stickers.add(details.data.copyWith(localOffset: localOffset));
+                }
+                setState(() {
+                  hide = true;
+                });
+              },
+              builder: (context, candidateData, rejectedData) => _drawBlock(),
+            );
+          }),
+        ),
       ),
     );
   }
