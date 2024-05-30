@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'heart_model.dart';
+
 class Part2Page extends StatefulWidget {
   const Part2Page({super.key});
 
@@ -10,7 +12,7 @@ class Part2Page extends StatefulWidget {
 }
 
 class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
-  final second = 9;
+  final second = 11;
   late final _controller = AnimationController(
     vsync: this,
     duration: Duration(seconds: second),
@@ -26,9 +28,33 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
     curve: Interval(2 / second, 5 / second, curve: Curves.easeIn),
   );
 
+  late final List<HeartModel> _hearts = [
+    HeartModel(
+      globalKey: GlobalKey(),
+      fadedAnimation: CurvedAnimation(
+        parent: _controller,
+        curve: Interval(3 / second, 4 / second, curve: Curves.easeIn),
+      ),
+    ),
+    HeartModel(
+      globalKey: GlobalKey(),
+      fadedAnimation: CurvedAnimation(
+        parent: _controller,
+        curve: Interval(4 / second, 5 / second, curve: Curves.easeIn),
+      ),
+    ),
+    HeartModel(
+      globalKey: GlobalKey(),
+      fadedAnimation: CurvedAnimation(
+        parent: _controller,
+        curve: Interval(2 / second, 3 / second, curve: Curves.easeIn),
+      ),
+    ),
+  ];
+
   late final Animation<Offset> _offsetAnimation = Tween<Offset>(
     begin: Offset.zero,
-    end: const Offset(0, -0.5),
+    end: const Offset(0, -1),
   ).animate(CurvedAnimation(
     parent: _controller,
     curve: Interval(2 / second, 5 / second, curve: Curves.easeIn),
@@ -40,10 +66,16 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
     TweenSequenceItem(tween: Tween(begin: 0.8, end: 1.0), weight: 1.0),
     TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 1.0),
     TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 4.0),
-    TweenSequenceItem(tween: Tween(begin: 1, end: scale), weight: 2.0),
+    // TweenSequenceItem(tween: Tween(begin: 1, end: scale), weight: 2.0),
   ]).animate(CurvedAnimation(
     parent: _controller,
-    curve: Interval(5 / second, 9 / second, curve: Curves.easeIn),
+    curve: Interval(5 / second, 8 / second, curve: Curves.easeIn),
+  ));
+
+  late final Animation<double> _scaleWithTranslateAnimation =
+      Tween<double>(begin: 1, end: scale).animate(CurvedAnimation(
+    parent: _controller,
+    curve: Interval(8 / second, 9 / second, curve: Curves.easeIn),
   ));
 
   late final Animation<double> _rotateAnimation = TweenSequence<double>([
@@ -54,50 +86,48 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
     curve: Interval(7 / second, 9 / second, curve: Curves.easeIn),
   ));
 
-  Animation<Offset>? _translateAnimation;
-
-  final GlobalKey _hearKey = GlobalKey();
   final GlobalKey _averageKey = GlobalKey();
-  Offset? _offsetA;
-  Offset? _offsetB;
 
-  double scale = HEART_SIZE_SMALL / HEART_SIZE_NORMOL;
+  double scale = HEART_SIZE_SMALL / HEART_SIZE_NORMAL;
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _offsetA = _getWidgetOffset(_hearKey);
-      _offsetB = _getWidgetOffset(_averageKey);
-      if (_offsetA != null && _offsetB != null) {
-        _translateAnimation = Tween<Offset>(
-          begin: const Offset(0, 0),
-          end: Offset(
-            (_offsetB!.dx -
-                _offsetA!.dx -
-                (HEART_SIZE_NORMOL - HEART_SIZE_SMALL) / 2),
-            (_offsetB!.dy -
-                _offsetA!.dy -
-                (HEART_SIZE_NORMOL - HEART_SIZE_SMALL) / 2),
-          ),
-        ).animate(CurvedAnimation(
-          parent: _controller,
-          curve: Interval(
-            8 / second,
-            9 / second,
-            curve: Curves.easeIn,
-          ),
-        ));
-        setState(() {});
+      for (var data in _hearts) {
+        _iniTranslateAnimations(data);
       }
+      setState(() {});
     });
   }
 
-  // Function to get the offset of a widget using its global key
-  Offset? _getWidgetOffset(GlobalKey key) {
+  _iniTranslateAnimations(HeartModel data) {
+    final startOffset = _getWidgetOffset(data.globalKey);
+    final endOffset = _getWidgetOffset(_averageKey);
+    final index = _hearts.indexOf(data);
+    if (startOffset != null && endOffset != null) {
+      final translateAnimation = Tween<Offset>(
+        begin: const Offset(0, 0),
+        end: Offset(
+          (endOffset.dx -
+              startOffset.dx -
+              (HEART_SIZE_NORMAL - HEART_SIZE_SMALL) / 2),
+          (endOffset.dy -
+              startOffset.dy -
+              (HEART_SIZE_NORMAL - HEART_SIZE_SMALL) / 2),
+        ),
+      ).animate(CurvedAnimation(
+        parent: _controller,
+        curve: Interval((8 + index) / second, (8 + index + 1) / second,
+            curve: Curves.easeIn),
+      ));
+      data.translateAnimation = translateAnimation;
+    }
+  }
+
+  Offset? _getWidgetOffset(GlobalKey? key) {
     final RenderBox? renderBox =
-        key.currentContext?.findRenderObject() as RenderBox?;
+        key?.currentContext?.findRenderObject() as RenderBox?;
     return renderBox?.localToGlobal(Offset.zero);
   }
 
@@ -185,42 +215,55 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          // _heartItem(),
-          // _heartItem(),
-          _heartItem(key: _hearKey),
-        ],
+        children: List.generate(_hearts.length, (index) {
+          return _heartItem(_hearts[index]);
+        }),
+        // children: [
+        //   // _heartItem(),
+        //   // _heartItem(),
+        //   _heartItem(key: _hearKey),
+        // ],
       ),
     );
   }
 
   // Transform.translate
-  Widget _heartItem({Key? key}) {
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      child: AnimatedBuilder(
-        animation: _rotateAnimation,
-        builder: (context, child) {
-          return Transform.rotate(
-            angle: _rotateAnimation.value * math.pi,
-            child: _translateAnimation == null
-                ? heartIcon(key: key)
-                : AnimatedBuilder(
-                    animation: _translateAnimation!,
-                    builder: (context, child) {
-                      return Transform.translate(
-                        offset: Offset(
-                          _translateAnimation!.value.dx / scale,
-                          _translateAnimation!.value.dy / scale,
+  Widget _heartItem(HeartModel data) {
+    return FadeTransition(
+      opacity: data.fadedAnimation,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: Stack(
+          children: [
+            heartIcon(),
+            AnimatedBuilder(
+              animation: _rotateAnimation,
+              builder: (context, child) {
+                return Transform.rotate(
+                  angle: _rotateAnimation.value * math.pi,
+                  child: data.translateAnimation == null
+                      ? heartIcon(key: data.globalKey)
+                      : ScaleTransition(
+                          scale: _scaleWithTranslateAnimation,
+                          child: AnimatedBuilder(
+                            animation: data.translateAnimation!,
+                            builder: (context, child) {
+                              return Transform.translate(
+                                offset: Offset(
+                                  data.translateAnimation!.value.dx / scale,
+                                  data.translateAnimation!.value.dy / scale,
+                                ),
+                                child: child,
+                              );
+                            },
+                            child: heartIcon(key: data.globalKey),
+                          ),
                         ),
-                        child: child,
-                      );
-                    },
-                    child: heartIcon(key: key),
-                  ),
-            // child: heartIcon(key: key),
-          );
-        },
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -229,7 +272,7 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
     return Icon(
       key: key,
       Icons.heart_broken,
-      size: size ?? HEART_SIZE_NORMOL,
+      size: size ?? HEART_SIZE_NORMAL,
       color: Colors.red,
     );
   }
@@ -284,5 +327,5 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
   }
 }
 
-const double HEART_SIZE_NORMOL = 40.0;
+const double HEART_SIZE_NORMAL = 40.0;
 const double HEART_SIZE_SMALL = 16.0;
