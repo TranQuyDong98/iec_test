@@ -1,7 +1,7 @@
-import 'package:drap_and_drop/part2/part2_page.dart';
 import 'package:flutter/material.dart';
 
-import 'part1/drag_and_drop_example.dart';
+import 'part1/drawer_page.dart';
+import 'part2/part2_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -33,7 +33,7 @@ class HomePage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const DragAndDropExample(),
+                      builder: (context) => const DrawerPage(),
                     ),
                   );
                 },

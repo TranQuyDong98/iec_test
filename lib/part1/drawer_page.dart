@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'action.dart';
 import 'draw_painter.dart';
+import 'sticker_model.dart';
 
 class DrawerPage extends StatefulWidget {
   const DrawerPage({super.key});
@@ -17,10 +18,19 @@ class _DrawerPageState extends State<DrawerPage> {
 
   late List<DrawAction> actions = [];
 
+  bool hide = false;
+  List<Sticker> stickers = <Sticker>[];
+
   @override
   void initState() {
     super.initState();
     initActions();
+  }
+
+  Offset convertGlobalToLocalOffset(BuildContext context, Offset global) {
+    RenderBox renderBox = context.findRenderObject() as RenderBox;
+    Offset localOffset = renderBox.globalToLocal(global);
+    return localOffset;
   }
 
   initActions() {
@@ -60,6 +70,23 @@ class _DrawerPageState extends State<DrawerPage> {
     }
   }
 
+  void onPanStart(DragStartDetails details) {
+    var initPath = Path()
+      ..moveTo(details.localPosition.dx, details.localPosition.dy);
+    paths.add(initPath);
+    final paint = initPaint();
+    mapPathPaints.add(MapEntry<Path, Paint>(initPath, paint));
+    setState(() {});
+  }
+
+  void onPanUpdate(DragUpdateDetails details) {
+    final lastPath = paths.last;
+    lastPath.lineTo(details.localPosition.dx, details.localPosition.dy);
+    final last = mapPathPaints.last.key;
+    last.lineTo(details.localPosition.dx, details.localPosition.dy);
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,7 +103,10 @@ class _DrawerPageState extends State<DrawerPage> {
       ),
       body: Column(
         children: [
+          _draggable(),
+          const SizedBox(height: 40),
           Expanded(child: _customPaint()),
+          const SizedBox(height: 40),
           Container(
             height: 50,
             width: double.maxFinite,
@@ -95,30 +125,59 @@ class _DrawerPageState extends State<DrawerPage> {
     ..strokeCap = StrokeCap.round;
 
   Widget _customPaint() {
-    return GestureDetector(
-      onPanStart: (details) {
-        var initPath = Path()
-          ..moveTo(details.localPosition.dx, details.localPosition.dy);
-        paths.add(initPath);
-        final paint = initPaint();
-        mapPathPaints.add(MapEntry<Path, Paint>(initPath, paint));
-        setState(() {});
-      },
-      onPanUpdate: (details) {
-        final lastPath = paths.last;
-        lastPath.lineTo(details.localPosition.dx, details.localPosition.dy);
-        final last = mapPathPaints.last.key;
-        last.lineTo(details.localPosition.dx, details.localPosition.dy);
-        setState(() {});
-      },
-      onPanEnd: (details) {},
-      child: CustomPaint(
-        size: Size.infinite,
-        painter: DrawPainter(
-          paths: paths,
-          mapPathPaints: mapPathPaints,
-        ),
+    return Container(
+      width: MediaQuery.sizeOf(context).width - 32,
+      height: double.maxFinite,
+      alignment: Alignment.center,
+      color: Colors.grey[300],
+      child: GestureDetector(
+        onPanStart: onPanStart,
+        onPanUpdate: onPanUpdate,
+        child: Builder(builder: (context) {
+          return DragTarget<Sticker>(
+            onAcceptWithDetails: (details) {
+              Offset localOffset =
+                  convertGlobalToLocalOffset(context, details.offset);
+              if (stickers.isEmpty) {
+                stickers.add(details.data.copyWith(localOffset: localOffset));
+              } else {
+                stickers
+                    .removeWhere((element) => element.id == details.data.id);
+                stickers.add(details.data.copyWith(localOffset: localOffset));
+              }
+              setState(() {
+                hide = true;
+              });
+            },
+            builder: (context, candidateData, rejectedData) => _drawBlock(),
+          );
+        }),
       ),
+    );
+  }
+
+  Widget _drawBlock() {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        CustomPaint(
+          size: Size.infinite,
+          painter: DrawPainter(
+            paths: paths,
+            mapPathPaints: mapPathPaints,
+          ),
+        ),
+        if (stickers.isNotEmpty)
+          ...List.generate(stickers.length, (index) {
+            final sticker = stickers[index];
+            final offset = sticker.localOffset;
+            return Positioned(
+              left: offset?.dx,
+              top: offset?.dy,
+              child: _draggable(data: sticker),
+            );
+          }),
+      ],
     );
   }
 
@@ -165,5 +224,24 @@ class _DrawerPageState extends State<DrawerPage> {
         color: disable ? Colors.white : Colors.black,
       ),
     );
+  }
+
+  Widget _draggable({Sticker? data}) {
+    return Draggable<Sticker>(
+      data: data ?? Sticker(),
+      feedback: _buildSticker(),
+      childWhenDragging: _buildSticker(opacity: data == null ? 1 : 0),
+      child: _buildSticker(),
+    );
+  }
+
+  Widget _buildSticker({double opacity = 1.0}) {
+    return Opacity(
+        opacity: opacity,
+        child: const SizedBox(
+          width: 40,
+          height: 40,
+          child: FlutterLogo(),
+        ));
   }
 }
