@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'heart_model.dart';
@@ -13,6 +15,10 @@ class Part2Page extends StatefulWidget {
 
 class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
   final second = 11;
+  final GlobalKey _averageKey = GlobalKey();
+
+  double scale = HEART_SIZE_SMALL / HEART_SIZE_NORMAL;
+
   late final _controller = AnimationController(
     vsync: this,
     duration: Duration(seconds: second),
@@ -38,6 +44,7 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
     ),
     HeartModel(
       globalKey: GlobalKey(),
+      // enable: false,
       fadedAnimation: CurvedAnimation(
         parent: _controller,
         curve: Interval(4 / second, 5 / second, curve: Curves.easeIn),
@@ -45,6 +52,7 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
     ),
     HeartModel(
       globalKey: GlobalKey(),
+      enable: false,
       fadedAnimation: CurvedAnimation(
         parent: _controller,
         curve: Interval(2 / second, 3 / second, curve: Curves.easeIn),
@@ -86,9 +94,33 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
     curve: Interval(7 / second, 9 / second, curve: Curves.easeIn),
   ));
 
-  final GlobalKey _averageKey = GlobalKey();
+  late final _averageController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 1),
+  );
 
-  double scale = HEART_SIZE_SMALL / HEART_SIZE_NORMAL;
+  late final Animation<double> _scaleAverageAnimation = TweenSequence<double>([
+    TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.975), weight: 1.0),
+    TweenSequenceItem(tween: Tween(begin: 0.975, end: 1), weight: 1.0),
+  ]).animate(CurvedAnimation(
+    parent: _averageController,
+    curve: Curves.easeIn,
+  ));
+
+  late final Animation<Color?> _colorAnimation = TweenSequence<Color?>([
+    TweenSequenceItem(
+        tween: ColorTween(
+          begin: Colors.grey.withOpacity(0.2),
+          end: Colors.pink.withOpacity(0.4),
+        ),
+        weight: 1.0),
+    TweenSequenceItem(
+        tween: ColorTween(
+          begin: Colors.pink.withOpacity(0.4),
+          end: Colors.grey.withOpacity(0.2),
+        ),
+        weight: 1.0),
+  ]).animate(CurvedAnimation(parent: _averageController, curve: Curves.easeIn));
 
   @override
   void initState() {
@@ -98,7 +130,32 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
         _iniTranslateAnimations(data);
       }
       setState(() {});
+      _controller.addListener(addListener);
     });
+  }
+
+  bool isForward = false;
+
+  addListener() {
+    const start = 8;
+    for (var data in _hearts) {
+      final index = _hearts.indexOf(data);
+      if (index % 2 == 0) {
+        if ((_controller.value >= ((start + index + 1) / second) &&
+            _controller.value < ((start + index + 2) / second) &&
+            !isForward)) {
+          isForward = true;
+          if (data.enable == true) _averageController.forward(from: 0.0);
+        }
+      } else {
+        if ((_controller.value >= ((start + index + 1) / second) &&
+            _controller.value < ((start + index + 2) / second) &&
+            isForward)) {
+          isForward = false;
+          if (data.enable == true) _averageController.forward(from: 0.0);
+        }
+      }
+    }
   }
 
   _iniTranslateAnimations(HeartModel data) {
@@ -133,7 +190,9 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _controller.removeListener(addListener);
     _controller.dispose();
+    _averageController.dispose();
     super.dispose();
   }
 
@@ -218,11 +277,6 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
         children: List.generate(_hearts.length, (index) {
           return _heartItem(_hearts[index]);
         }),
-        // children: [
-        //   // _heartItem(),
-        //   // _heartItem(),
-        //   _heartItem(key: _hearKey),
-        // ],
       ),
     );
   }
@@ -231,68 +285,82 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
   Widget _heartItem(HeartModel data) {
     return FadeTransition(
       opacity: data.fadedAnimation,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: Stack(
-          children: [
-            heartIcon(),
-            AnimatedBuilder(
-              animation: _rotateAnimation,
-              builder: (context, child) {
-                return Transform.rotate(
-                  angle: _rotateAnimation.value * math.pi,
-                  child: data.translateAnimation == null
-                      ? heartIcon(key: data.globalKey)
-                      : ScaleTransition(
-                          scale: _scaleWithTranslateAnimation,
-                          child: AnimatedBuilder(
-                            animation: data.translateAnimation!,
-                            builder: (context, child) {
-                              return Transform.translate(
-                                offset: Offset(
-                                  data.translateAnimation!.value.dx / scale,
-                                  data.translateAnimation!.value.dy / scale,
+      child: data.enable == true
+          ? ScaleTransition(
+              scale: _scaleAnimation,
+              child: Stack(
+                children: [
+                  heartIcon(enable: false),
+                  AnimatedBuilder(
+                    animation: _rotateAnimation,
+                    builder: (context, child) {
+                      return Transform.rotate(
+                        angle: _rotateAnimation.value * math.pi,
+                        child: data.translateAnimation == null
+                            ? heartIcon(
+                                key: data.globalKey, enable: data.enable)
+                            : ScaleTransition(
+                                scale: _scaleWithTranslateAnimation,
+                                child: AnimatedBuilder(
+                                  animation: data.translateAnimation!,
+                                  builder: (context, child) {
+                                    return Transform.translate(
+                                      offset: Offset(
+                                        data.translateAnimation!.value.dx /
+                                            scale,
+                                        data.translateAnimation!.value.dy /
+                                            scale,
+                                      ),
+                                      child: child,
+                                    );
+                                  },
+                                  child: heartIcon(
+                                      key: data.globalKey, enable: data.enable),
                                 ),
-                                child: child,
-                              );
-                            },
-                            child: heartIcon(key: data.globalKey),
-                          ),
-                        ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
+                              ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            )
+          : heartIcon(enable: false),
     );
   }
 
-  Widget heartIcon({Key? key, double? size}) {
+  Widget heartIcon({Key? key, double? size, bool? enable = true}) {
     return Icon(
       key: key,
       Icons.heart_broken,
       size: size ?? HEART_SIZE_NORMAL,
-      color: Colors.red,
+      color: Colors.red.withOpacity(enable == true ? 1.0 : 0.4),
     );
   }
 
   Widget _average() {
-    return Container(
-      width: MediaQuery.sizeOf(context).width - 32 * 2,
-      decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          Expanded(child: _leftAverage()),
-          const SizedBox(width: 12),
-          const FlutterLogo(size: 30)
-        ],
-      ),
+    return AnimatedBuilder(
+      animation: _colorAnimation,
+      builder: (context, child) {
+        return ScaleTransition(
+          scale: _scaleAverageAnimation,
+          child: Container(
+            width: MediaQuery.sizeOf(context).width - 32 * 2,
+            decoration: BoxDecoration(
+              color: _colorAnimation.value,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Expanded(child: _leftAverage()),
+                const SizedBox(width: 12),
+                const FlutterLogo(size: 30)
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
