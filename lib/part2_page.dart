@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'custom_tooltip.dart';
 import 'heart_model.dart';
 
 class Part2Page extends StatefulWidget {
@@ -18,6 +18,14 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
   final GlobalKey _averageKey = GlobalKey();
 
   double scale = HEART_SIZE_SMALL / HEART_SIZE_NORMAL;
+
+  int vote = 2;
+  int totalVote = 10;
+
+  bool isForward = false;
+
+  bool isDone = false;
+  int count = 0;
 
   late final _controller = AnimationController(
     vsync: this,
@@ -120,7 +128,32 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
           end: Colors.grey.withOpacity(0.2),
         ),
         weight: 1.0),
-  ]).animate(CurvedAnimation(parent: _averageController, curve: Curves.easeIn));
+  ]).animate(CurvedAnimation(
+    parent: _averageController,
+    curve: Curves.easeIn,
+  ));
+
+  late final _tooltipController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 2),
+  );
+
+  late final Animation<Offset> _tooltipAnimation = TweenSequence<Offset>([
+    TweenSequenceItem(
+      tween: Tween(
+        begin: Offset.zero,
+        end: const Offset(0, 0.2),
+      ),
+      weight: 1.0,
+    ),
+    TweenSequenceItem(
+      tween: Tween(
+        begin: const Offset(0, 0.2),
+        end: Offset.zero,
+      ),
+      weight: 1.0,
+    ),
+  ]).animate(CurvedAnimation(parent: _tooltipController, curve: Curves.easeIn));
 
   @override
   void initState() {
@@ -134,8 +167,6 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
     });
   }
 
-  bool isForward = false;
-
   addListener() {
     const start = 8;
     for (var data in _hearts) {
@@ -145,17 +176,29 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
             _controller.value < ((start + index + 2) / second) &&
             !isForward)) {
           isForward = true;
-          if (data.enable == true) _averageController.forward(from: 0.0);
+          if (data.enable == true) {
+            _averageController.forward(from: 0.0);
+            vote++;
+            count++;
+          }
         }
       } else {
         if ((_controller.value >= ((start + index + 1) / second) &&
             _controller.value < ((start + index + 2) / second) &&
             isForward)) {
           isForward = false;
-          if (data.enable == true) _averageController.forward(from: 0.0);
+          if (data.enable == true) {
+            _averageController.forward(from: 0.0);
+            vote++;
+            count++;
+          }
         }
       }
     }
+    isDone = count ==
+        (_hearts.where((element) => element.enable == true).toList()).length;
+    _tooltipController.repeat();
+    setState(() {});
   }
 
   _iniTranslateAnimations(HeartModel data) {
@@ -193,6 +236,7 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
     _controller.removeListener(addListener);
     _controller.dispose();
     _averageController.dispose();
+    _tooltipController.dispose();
     super.dispose();
   }
 
@@ -217,19 +261,22 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
               fit: BoxFit.fill,
             ),
           ),
-          Positioned(top: 270, child: _rowText()),
+          Positioned(top: 250, child: _rowText()),
+          Positioned(top: 315, left: 0, right: 0, child: _progress()),
           Positioned(top: 300, left: 0, right: 0, child: _vote()),
+          Positioned(bottom: 40, left: 0, right: 0, child: _bottom()),
         ],
       ),
     );
   }
 
   Widget _rowText() {
-    return SizedBox(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       width: MediaQuery.sizeOf(context).width,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [_fadeText("Faded Text1"), _fadeText("Faded Text2")],
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [_fadeText("Intro Page"), _fadeText("Design 4")],
       ),
     );
   }
@@ -251,7 +298,7 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
     return FadeTransition(
       opacity: _animation,
       child: Container(
-        padding: const EdgeInsets.all(32.0).copyWith(top: 8),
+        padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -378,19 +425,113 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
             ),
             heartIcon(key: _averageKey, size: HEART_SIZE_SMALL),
             const SizedBox(width: 4),
-            const Text(
-              '2/10',
-              style: TextStyle(fontSize: 10),
+            Text(
+              '$vote/$totalVote',
+              style: const TextStyle(fontSize: 10),
             )
           ],
         ),
         const SizedBox(height: 8),
-        Container(
-          width: double.maxFinite,
-          color: Colors.red,
-          height: 10,
-        )
+        ClipRRect(
+          borderRadius: const BorderRadius.all(Radius.circular(10)),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: vote.toDouble()),
+            duration: const Duration(seconds: 1),
+            builder: (context, value, _) => LinearProgressIndicator(
+              value: value / totalVote,
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.red),
+              backgroundColor: Colors.white,
+            ),
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _progress() {
+    return SizedBox(
+      width: MediaQuery.sizeOf(context).width,
+      child: Center(
+        child: AnimatedOpacity(
+          duration: const Duration(seconds: 1),
+          opacity: isDone ? 1 : 0,
+          curve: Curves.easeIn,
+          child: AnimatedSlide(
+            duration: const Duration(seconds: 1),
+            curve: Curves.easeIn,
+            offset: isDone ? const Offset(0, -2) : const Offset(0, 0),
+            child: const Text(
+              'Fantastic Progress!',
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _bottom() {
+    return AnimatedOpacity(
+      duration: const Duration(seconds: 1),
+      opacity: isDone ? 1 : 0,
+      curve: Curves.easeIn,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _tooltip(),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.maxFinite,
+                    child: ElevatedButton(
+                      onPressed: () {},
+                      child: const Text('Redesign'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {},
+                child: const Text('Continue'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tooltip() {
+    return SlideTransition(
+      position: _tooltipAnimation,
+      child: AnimatedOpacity(
+        duration: const Duration(seconds: 2),
+        opacity: isDone ? 1 : 0,
+        curve: Curves.easeIn,
+        child: CustomPaint(
+          painter: TooltipPainter(),
+          child: Container(
+            padding: const EdgeInsets.all(8.0),
+            alignment: Alignment.center,
+            child: const Text(
+              'Can you perfect your design?',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
