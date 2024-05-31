@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -30,7 +29,7 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
   late final _controller = AnimationController(
     vsync: this,
     duration: Duration(seconds: second),
-  )..forward() /*..repeat()*/;
+  )..forward();
 
   late final Animation<double> _fullScreenAnimation = CurvedAnimation(
     parent: _controller,
@@ -49,6 +48,8 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
         parent: _controller,
         curve: Interval(3 / second, 4 / second, curve: Curves.easeIn),
       ),
+      scaleAnimation: initScaleAnimation(5, 9),
+      rotateAnimation: initRotateAnimation(7, 9),
     ),
     HeartModel(
       globalKey: GlobalKey(),
@@ -57,6 +58,8 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
         parent: _controller,
         curve: Interval(4 / second, 5 / second, curve: Curves.easeIn),
       ),
+      scaleAnimation: initScaleAnimation(6, 10),
+      rotateAnimation: initRotateAnimation(8, 10),
     ),
     HeartModel(
       globalKey: GlobalKey(),
@@ -65,8 +68,37 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
         parent: _controller,
         curve: Interval(2 / second, 3 / second, curve: Curves.easeIn),
       ),
+      scaleAnimation: initScaleAnimation(7, 11),
+      rotateAnimation: initRotateAnimation(9, 11),
     ),
   ];
+
+  Animation<double> initScaleAnimation(double start, double end) {
+    return TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.8), weight: 1.0),
+      TweenSequenceItem(tween: Tween(begin: 0.8, end: 1.0), weight: 1.0),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 1.0),
+      TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 1.0),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 2.0),
+      TweenSequenceItem(tween: Tween(begin: 1, end: scale), weight: 2.0),
+    ]).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Interval(start / second, end / second, curve: Curves.easeIn),
+      ),
+    );
+  }
+
+  Animation<double> initRotateAnimation(double start, double end) {
+    return TweenSequence<double>([
+      TweenSequenceItem(tween: Tween<double>(begin: 0.0, end: -0.1), weight: 1),
+      TweenSequenceItem(
+          tween: Tween<double>(begin: -0.1, end: 0.0), weight: 0.01),
+    ]).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Interval(start / second, end / second, curve: Curves.linear),
+    ));
+  }
 
   late final Animation<Offset> _offsetAnimation = Tween<Offset>(
     begin: Offset.zero,
@@ -74,32 +106,6 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
   ).animate(CurvedAnimation(
     parent: _controller,
     curve: Interval(2 / second, 5 / second, curve: Curves.easeIn),
-  ));
-
-  late final Animation<double> _scaleAnimation = TweenSequence<double>([
-    TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.8), weight: 1.0),
-    TweenSequenceItem(tween: Tween(begin: 0.8, end: 0.8), weight: 1.0),
-    TweenSequenceItem(tween: Tween(begin: 0.8, end: 1.0), weight: 1.0),
-    TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 1.0),
-    TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 4.0),
-    // TweenSequenceItem(tween: Tween(begin: 1, end: scale), weight: 2.0),
-  ]).animate(CurvedAnimation(
-    parent: _controller,
-    curve: Interval(5 / second, 8 / second, curve: Curves.easeIn),
-  ));
-
-  late final Animation<double> _scaleWithTranslateAnimation =
-      Tween<double>(begin: 1, end: scale).animate(CurvedAnimation(
-    parent: _controller,
-    curve: Interval(8 / second, 9 / second, curve: Curves.easeIn),
-  ));
-
-  late final Animation<double> _rotateAnimation = TweenSequence<double>([
-    TweenSequenceItem(tween: Tween<double>(begin: 0.0, end: -0.1), weight: 1),
-    TweenSequenceItem(tween: Tween<double>(begin: -0.1, end: 0.0), weight: 1),
-  ]).animate(CurvedAnimation(
-    parent: _controller,
-    curve: Interval(7 / second, 9 / second, curve: Curves.easeIn),
   ));
 
   late final _averageController = AnimationController(
@@ -219,7 +225,7 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
       ).animate(CurvedAnimation(
         parent: _controller,
         curve: Interval((8 + index) / second, (8 + index + 1) / second,
-            curve: Curves.easeIn),
+            curve: Curves.linear),
       ));
       data.translateAnimation = translateAnimation;
     }
@@ -331,48 +337,69 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
   // Transform.translate
   Widget _heartItem(HeartModel data) {
     return FadeTransition(
-      opacity: data.fadedAnimation,
-      child: data.enable == true
-          ? ScaleTransition(
-              scale: _scaleAnimation,
-              child: Stack(
+        opacity: data.fadedAnimation,
+        child: data.enable != true
+            ? heartIcon(enable: false)
+            : Stack(
                 children: [
                   heartIcon(enable: false),
-                  AnimatedBuilder(
-                    animation: _rotateAnimation,
-                    builder: (context, child) {
-                      return Transform.rotate(
-                        angle: _rotateAnimation.value * math.pi,
-                        child: data.translateAnimation == null
-                            ? heartIcon(
-                                key: data.globalKey, enable: data.enable)
-                            : ScaleTransition(
-                                scale: _scaleWithTranslateAnimation,
-                                child: AnimatedBuilder(
-                                  animation: data.translateAnimation!,
-                                  builder: (context, child) {
-                                    return Transform.translate(
-                                      offset: Offset(
-                                        data.translateAnimation!.value.dx /
-                                            scale,
-                                        data.translateAnimation!.value.dy /
-                                            scale,
-                                      ),
-                                      child: child,
-                                    );
-                                  },
-                                  child: heartIcon(
-                                      key: data.globalKey, enable: data.enable),
-                                ),
-                              ),
-                      );
-                    },
-                  ),
+                  if (data.translateAnimation == null)
+                    heartIcon(key: data.globalKey, enable: data.enable)
+                  else
+                    AnimatedBuilder(
+                      animation: data.translateAnimation!,
+                      builder: (context, child) {
+                        return Transform.translate(
+                          offset: Offset(
+                            data.translateAnimation!.value.dx,
+                            data.translateAnimation!.value.dy,
+                          ),
+                          child: child,
+                        );
+                      },
+                      child: ScaleTransition(
+                        scale: data.scaleAnimation,
+                        child: Transform.rotate(
+                          angle: data.rotateAnimation.value * math.pi,
+                          child: heartIcon(
+                              key: data.globalKey, enable: data.enable),
+                        ),
+                      ),
+                    )
                 ],
-              ),
-            )
-          : heartIcon(enable: false),
-    );
+              )
+        // ? ScaleTransition(
+        //     scale: _scaleAnimation,
+        //     child: Stack(
+        //       children: [
+        //         heartIcon(enable: false),
+        //         if (data.translateAnimation == null)
+        //           heartIcon(key: data.globalKey, enable: data.enable)
+        //         else
+        //           AnimatedBuilder(
+        //             animation: data.translateAnimation!,
+        //             builder: (context, child) {
+        //               return Transform.translate(
+        //                 offset: Offset(
+        //                   data.translateAnimation!.value.dx,
+        //                   data.translateAnimation!.value.dy,
+        //                 ),
+        //                 child: child,
+        //               );
+        //             },
+        //             child: ScaleTransition(
+        //               scale: _scaleWithTranslateAnimation,
+        //               child: Transform.rotate(
+        //                 angle: _rotateAnimation.value * math.pi,
+        //                 child: heartIcon(
+        //                     key: data.globalKey, enable: data.enable),
+        //               ),
+        //             ),
+        //           )
+        //       ],
+        //     ),
+        //   )
+        );
   }
 
   Widget heartIcon({Key? key, double? size, bool? enable = true}) {
