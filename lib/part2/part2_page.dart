@@ -48,8 +48,9 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
         parent: _controller,
         curve: Interval(3 / second, 4 / second, curve: Curves.easeIn),
       ),
-      scaleAnimation: initScaleAnimation(5, 9),
+      scaleAnimation: initScaleAnimation(5, 8),
       rotateAnimation: initRotateAnimation(7, 9),
+      scaleWithTranslateAnimation: initScaleWithTranslateAnimation(8, 9),
     ),
     HeartModel(
       globalKey: GlobalKey(),
@@ -58,8 +59,9 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
         parent: _controller,
         curve: Interval(4 / second, 5 / second, curve: Curves.easeIn),
       ),
-      scaleAnimation: initScaleAnimation(6, 10),
+      scaleAnimation: initScaleAnimation(6, 9),
       rotateAnimation: initRotateAnimation(8, 10),
+      scaleWithTranslateAnimation: initScaleWithTranslateAnimation(9, 10),
     ),
     HeartModel(
       globalKey: GlobalKey(),
@@ -68,8 +70,9 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
         parent: _controller,
         curve: Interval(2 / second, 3 / second, curve: Curves.easeIn),
       ),
-      scaleAnimation: initScaleAnimation(7, 11),
+      scaleAnimation: initScaleAnimation(7, 10),
       rotateAnimation: initRotateAnimation(9, 11),
+      scaleWithTranslateAnimation: initScaleWithTranslateAnimation(10, 11),
     ),
   ];
 
@@ -80,13 +83,19 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 1.0),
       TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 1.0),
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 2.0),
-      TweenSequenceItem(tween: Tween(begin: 1, end: scale), weight: 2.0),
     ]).animate(
       CurvedAnimation(
         parent: _controller,
         curve: Interval(start / second, end / second, curve: Curves.easeIn),
       ),
     );
+  }
+
+  Animation<double> initScaleWithTranslateAnimation(double start, double end) {
+    return Tween<double>(begin: 1, end: scale).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Interval(start / second, end / second, curve: Curves.easeIn),
+    ));
   }
 
   Animation<double> initRotateAnimation(double start, double end) {
@@ -340,33 +349,36 @@ class _Part2PageState extends State<Part2Page> with TickerProviderStateMixin {
         opacity: data.fadedAnimation,
         child: data.enable != true
             ? heartIcon(enable: false)
-            : Stack(
-                children: [
-                  heartIcon(enable: false),
-                  if (data.translateAnimation == null)
-                    heartIcon(key: data.globalKey, enable: data.enable)
-                  else
-                    AnimatedBuilder(
-                      animation: data.translateAnimation!,
-                      builder: (context, child) {
-                        return Transform.translate(
-                          offset: Offset(
-                            data.translateAnimation!.value.dx,
-                            data.translateAnimation!.value.dy,
+            : ScaleTransition(
+                scale: data.scaleAnimation,
+                child: Stack(
+                  children: [
+                    heartIcon(enable: false),
+                    if (data.translateAnimation == null)
+                      heartIcon(key: data.globalKey, enable: data.enable)
+                    else
+                      AnimatedBuilder(
+                        animation: data.translateAnimation!,
+                        builder: (context, child) {
+                          return Transform.translate(
+                            offset: Offset(
+                              data.translateAnimation!.value.dx,
+                              data.translateAnimation!.value.dy,
+                            ),
+                            child: child,
+                          );
+                        },
+                        child: ScaleTransition(
+                          scale: data.scaleWithTranslateAnimation,
+                          child: Transform.rotate(
+                            angle: data.rotateAnimation.value * math.pi,
+                            child: heartIcon(
+                                key: data.globalKey, enable: data.enable),
                           ),
-                          child: child,
-                        );
-                      },
-                      child: ScaleTransition(
-                        scale: data.scaleAnimation,
-                        child: Transform.rotate(
-                          angle: data.rotateAnimation.value * math.pi,
-                          child: heartIcon(
-                              key: data.globalKey, enable: data.enable),
                         ),
-                      ),
-                    )
-                ],
+                      )
+                  ],
+                ),
               )
         // ? ScaleTransition(
         //     scale: _scaleAnimation,
